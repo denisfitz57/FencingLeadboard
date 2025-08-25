@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Fencer, BoutResult } from './types';
 import { calculateLeaderboard } from './services/leaderboardService';
 import Header from './components/Header';
@@ -8,16 +8,37 @@ import AddBoutForm from './components/AddBoutForm';
 import LeaderboardTable from './components/LeaderboardTable';
 import FencersList from './components/FencersList';
 import BoutsList from './components/BoutsList';
-import { PlusIcon, CalculatorIcon, UsersIcon, ListIcon } from './components/icons';
+import { PlusIcon, CalculatorIcon, TrashIcon, ListIcon } from './components/icons';
 
 type Tab = 'add' | 'lists';
 
+const loadState = <T,>(key: string, defaultValue: T): T => {
+  try {
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    console.error("Failed to load state from localStorage for key:", key, e);
+  }
+  return defaultValue;
+};
+
 const App: React.FC = () => {
-  const [fencers, setFencers] = useState<Fencer[]>([]);
-  const [bouts, setBouts] = useState<BoutResult[]>([]);
+  const [fencers, setFencers] = useState<Fencer[]>(() => loadState<Fencer[]>('fencing_app_fencers', []));
+  const [bouts, setBouts] = useState<BoutResult[]>(() => loadState<BoutResult[]>('fencing_app_bouts', []));
   const [leaderboard, setLeaderboard] = useState<Fencer[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('add');
   const [isCalculating, setIsCalculating] = useState(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('fencing_app_fencers', JSON.stringify(fencers));
+      localStorage.setItem('fencing_app_bouts', JSON.stringify(bouts));
+    } catch (e) {
+      console.error("Failed to save state to localStorage", e);
+    }
+  }, [fencers, bouts]);
 
   const fencerMap = useMemo(() => {
     return new Map(fencers.map(f => [f.id, f.name]));
@@ -53,6 +74,17 @@ const App: React.FC = () => {
       setIsCalculating(false);
     }, 500);
   }, [fencers, bouts]);
+  
+  const handleClearData = () => {
+    if (window.confirm("Are you sure you want to clear all fencers and bouts? This action cannot be undone.")) {
+      localStorage.removeItem('fencing_app_fencers');
+      localStorage.removeItem('fencing_app_bouts');
+      setFencers([]);
+      setBouts([]);
+      setLeaderboard([]);
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
@@ -71,6 +103,13 @@ const App: React.FC = () => {
                 >
                   <CalculatorIcon className="h-5 w-5 mr-2" />
                   {isCalculating ? 'Calculating...' : 'Calculate Leaderboard'}
+                </button>
+                 <button
+                  onClick={handleClearData}
+                  className="flex items-center justify-center w-full px-6 py-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-500 transition-colors duration-300 shadow-md"
+                >
+                  <TrashIcon className="h-5 w-5 mr-2" />
+                  Clear All Data
                 </button>
               </div>
             </div>
