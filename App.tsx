@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { Fencer, BoutResult } from './types';
 import { calculateLeaderboard } from './services/leaderboardService';
 import Header from './components/Header';
@@ -8,7 +8,7 @@ import AddBoutForm from './components/AddBoutForm';
 import LeaderboardTable from './components/LeaderboardTable';
 import FencersList from './components/FencersList';
 import BoutsList from './components/BoutsList';
-import { PlusIcon, CalculatorIcon, TrashIcon, ListIcon } from './components/icons';
+import { PlusIcon, CalculatorIcon, TrashIcon, ListIcon, ExportIcon, ImportIcon } from './components/icons';
 
 type Tab = 'add' | 'lists';
 
@@ -30,6 +30,8 @@ const App: React.FC = () => {
   const [leaderboard, setLeaderboard] = useState<Fencer[]>([]);
   const [activeTab, setActiveTab] = useState<Tab>('add');
   const [isCalculating, setIsCalculating] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
 
   useEffect(() => {
     try {
@@ -85,6 +87,61 @@ const App: React.FC = () => {
     }
   };
 
+  const handleExportData = () => {
+    const dataToExport = {
+      fencers,
+      bouts,
+    };
+    const dataStr = JSON.stringify(dataToExport, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `fencing_leaderboard_data_${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+  
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (window.confirm("Are you sure you want to import this file? This will overwrite all current fencer and bout data.")) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result;
+                if (typeof text !== 'string') {
+                    throw new Error("File content is not readable text.");
+                }
+                const data = JSON.parse(text);
+
+                // Basic validation
+                if (Array.isArray(data.fencers) && Array.isArray(data.bouts)) {
+                    setFencers(data.fencers);
+                    setBouts(data.bouts);
+                    setLeaderboard([]); // Clear leaderboard as data has changed
+                    alert("Data imported successfully!");
+                } else {
+                    throw new Error("Invalid file format. Missing 'fencers' or 'bouts' array.");
+                }
+            } catch (error) {
+                console.error("Failed to import data:", error);
+                alert(`Error importing file: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        };
+        reader.readAsText(file);
+    }
+    // Reset file input value to allow re-uploading the same file
+    event.target.value = '';
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
@@ -95,6 +152,13 @@ const App: React.FC = () => {
           <div className="lg:col-span-1 space-y-8">
             <div className="bg-gray-800 rounded-lg shadow-lg p-6">
               <h2 className="text-2xl font-bold mb-4 text-cyan-400">Controls</h2>
+               <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept=".json"
+                style={{ display: 'none' }}
+              />
               <div className="flex flex-col space-y-4">
                 <button
                   onClick={handleCalculate}
@@ -103,6 +167,21 @@ const App: React.FC = () => {
                 >
                   <CalculatorIcon className="h-5 w-5 mr-2" />
                   {isCalculating ? 'Calculating...' : 'Calculate Leaderboard'}
+                </button>
+                 <button
+                  onClick={handleImportClick}
+                  className="flex items-center justify-center w-full px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors duration-300 shadow-md"
+                >
+                  <ImportIcon className="h-5 w-5 mr-2" />
+                  Import Data
+                </button>
+                <button
+                  onClick={handleExportData}
+                  disabled={fencers.length === 0 && bouts.length === 0}
+                  className="flex items-center justify-center w-full px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-500 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors duration-300 shadow-md"
+                >
+                  <ExportIcon className="h-5 w-5 mr-2" />
+                  Export Data
                 </button>
                  <button
                   onClick={handleClearData}
