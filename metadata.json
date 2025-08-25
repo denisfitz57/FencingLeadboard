@@ -1,0 +1,5 @@
+{
+  "name": "Fencing Leaderboard Calculator",
+  "description": "An application to manage fencers, track bout results, and calculate a leaderboard based on a specific rating and points algorithm. Users can add fencers, log competition results, and run the calculation to see updated rankings.",
+  "requestFramePermissions": []
+}
